@@ -8,17 +8,14 @@ $arrayOfStrings = $puzzleInput -split "`r`n" # split huge string into individual
 
 $finalSum = 0
 
-foreach($string in $arrayOfStrings)
-{
+foreach($string in $arrayOfStrings){
     $charArray = $string.ToCharArray() # char -> array
     $digits = New-Object System.Collections.ArrayList 
      
-    foreach($char in $charArray)
-    {
+    foreach($char in $charArray){
         $char = $char.ToString() # i dont know why this is needed but i cant get it to match in the expression below without doing this?
 
-        switch($char)
-        {
+        switch($char){
             {$_ -in @(0..9)} { $digits.Add($char) | Out-Null }
         }
     }
