@@ -1,0 +1,5 @@
+// List all errors and warnings output from AzureAutomation runbook jobs. 
+AzureDiagnostics 
+| where ResourceProvider == "MICROSOFT.AUTOMATION" 
+| where StreamType_s == "Error" or StreamType_s == "Warning" 
+| project TimeGenerated, Category, JobId_g, OperationName, RunbookName_s, ResultDescription, _ResourceId
