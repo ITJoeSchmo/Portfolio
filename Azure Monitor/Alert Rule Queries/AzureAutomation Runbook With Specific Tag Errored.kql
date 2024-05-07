@@ -1,0 +1,21 @@
+// Return errors from runbooks that are tagged. In this case, we are looking at runbooks tagged: Runbook Type : Security.
+// E.g. Azure/PowerShell/AzureAutomation/Clear-MobileDevicesAndSessions.ps1 is a runbook that is triggered by a security team to clear persisted signin sessions and remove any trusted devices from Exchange ActiveSync. This query within an alert rule allows us to be notified and respond quickly to a failed automation jobs when related to security processes.
+// If this query is setup as an Alert Rule, a system assigned identity with the Log Analytics Reader role assigned the nested Azure Resource Graph query works successfully to find the tagged runbooks. 
+
+arg("").Resources
+| where type == "microsoft.automation/automationaccounts/runbooks" and tags['Runbook Type'] =~ "Security"
+| join (
+    AzureDiagnostics 
+    | where ResourceProvider == "MICROSOFT.AUTOMATION" 
+    | where StreamType_s == "Error"
+    | project
+        TimeGenerated,
+        Category,
+        JobId_g,
+        OperationName,
+        RunbookName_s,
+        ResultDescription,
+        _ResourceId
+    )
+    on $left.name == $right.RunbookName_s
+| project TimeGenerated, JobId_g, RunbookName_s, ResultDescription, _ResourceId
