@@ -10,20 +10,17 @@ $arrayOfStrings = $puzzleInput -split "`r`n" # split huge string into individual
 $spelledNumbers = @("one","two","three","four","five","six","seven","eight","nine")
 $finalSum = 0
 
-foreach($string in $arrayOfStrings)
-{
+foreach($string in $arrayOfStrings){
     $charArray = $string.ToCharArray() # char -> array
     $digits = New-Object System.Collections.ArrayList 
 
-    foreach($number in $spelledNumbers)
-    {
+    foreach($number in $spelledNumbers){
         $firstIndex = $string.IndexOf($number) # the thing is this doesnt account for the string being there multiple times... e.g. eightninemfpxcbkzkj1ninelv
         # but first and last values are most important...                                                                                ^              ^
         # maybe if .LastIndexOf is a different index, we should store it also. Let's see if that is "good enough"
         $lastIndex = $string.LastIndexOf($number) 
 
-        if($firstIndex -ne -1)
-        {
+        if($firstIndex -ne -1){
             $obj = [PSCustomObject]@{
                 Value = $number.replace("one",1).replace("two",2).replace("three",3).replace("four",4).replace("five",5).replace("six",6).replace("seven",7).replace("eight",8).replace("nine",9)
                 Index = $firstIndex # gonna use the stored indexes for sorting digits to get first/last
@@ -32,8 +29,7 @@ foreach($string in $arrayOfStrings)
             $digits.Add($obj) | Out-Null 
         }
 
-        if(($lastIndex -ne -1) -and ($firstIndex -ne $lastIndex))
-        {
+        if(($lastIndex -ne -1) -and ($firstIndex -ne $lastIndex)){
             $obj = [PSCustomObject]@{
                 Value = $number.replace("one",1).replace("two",2).replace("three",3).replace("four",4).replace("five",5).replace("six",6).replace("seven",7).replace("eight",8).replace("nine",9)
                 Index = $lastIndex
@@ -43,12 +39,10 @@ foreach($string in $arrayOfStrings)
         }
     }
     
-    for($i = 0; $i -lt $string.Length; $i++)
-    {
+    for($i = 0; $i -lt $string.Length; $i++){
         $char = $string[$i].ToString() # i dont know why this is needed but i cant get it to match in the expression below without doing this?
 
-        switch($char)
-        {
+        switch($char){
             {$_ -in @(0..9)}{ 
                 $obj = [PSCustomObject]@{
                     Value = $char
