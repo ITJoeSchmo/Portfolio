@@ -14,7 +14,7 @@ Connect-Vault -vaultaddress "vault.domain.com" -Credential $vault_creds
 $Entra_Cred = Read-VaultSecret -enginepath "engine/path" -secretpath "path/to/secret" -keyname "EntraID_Admin"
 
 try {
-    write-debug "Getting access token from AzAccount session to pull license:SKU definition list"
+    write-output "Getting access token from AzAccount session to pull license:SKU definition list"
     
     # 74658136-14ec-4630-ad9b-26e160ff0fc6 is a AppId to some hidden Microsoft API
     # this Azure API is what the Azure portal uses to resolve SKU -> license name in the back-end
@@ -33,9 +33,9 @@ try {
 
     # populate SKU:name definitions
     $licenseData | ForEach-Object { $resolveLicenseID[$_.skuId] = $_.name }
-    write-debug "License SkuId:DisplayName definition hashtable populated with $($resolveLicenseID.count)  definitions"
+    write-output "License SkuId:DisplayName definition hashtable populated with $($resolveLicenseID.count)  definitions"
 } catch {
-    write-debug "Failed to get access token from AzAccount; license IDs will not be resolved to display name"
+    write-output "Failed to get access token from AzAccount; license IDs will not be resolved to display name"
 }
 
 Disconnect-AzAccount | out-null
@@ -47,14 +47,14 @@ $returnUserLicenseData = New-Object System.Collections.ArrayList
 # array list for users missing properties
 $usersMissingProperties = New-Object System.Collections.ArrayList
 
-Write-Debug "Querying users with assignedLicenses greater than 0 from EntraID"
+write-output "Querying users with assignedLicenses greater than 0 from EntraID"
 # properties for graph query
 $properties = "displayName,id,jobTitle,department,CreatedDateTime,AccountEnabled,AssignedLicenses,licenseAssignmentStates,signInActivity,userPrincipalName,BusinessPhones,OnPremisesDistinguishedName"
 # get users with a license assigned
 $licensedUsers = Get-MgUser -All -Property $properties -Filter 'assignedLicenses/$count ne 0' -ConsistencyLevel eventual -CountVariable $licensedUserCount 
-write-debug "Found $($licensedUsers.Count) licensed users"
+write-output "Found $($licensedUsers.Count) licensed users"
 
-Write-Debug "Pulling Group data"
+write-output "Pulling Group data"
 # cache GroupID->DisplayName definitions in a hashtable
 $resolveGroupID = @{}
 # groups which need resolved for license inheritance
@@ -64,9 +64,9 @@ $groupData = Get-MgGroup -All -Property 'DisplayName','Id'
 $groupData.where({ $_.Id -in $groupIDsFromGraphQuery }) | ForEach-Object { $resolveGroupID[$_.Id] = $_.DisplayName }
 # free up RAM, this is a decent chunk of data to hold onto for nothing 
 $groupData,$groupIDsFromGraphQuery = $null
-write-debug "Group license ID:DisplayName definition hashtable populated with $($resolveGroupID.count) definitions"
+write-output "Group license ID:DisplayName definition hashtable populated with $($resolveGroupID.count) definitions"
 
-Write-Debug "Pulling M365 Usage/Activation report data from M365 Usage and Activation Details"
+write-output "Pulling M365 Usage/Activation report data from M365 Usage and Activation Details"
 
 # get M365 Usage / Activation report from other bot
 $activeUserDetailsCSV        = "$env:temp\m365_activeuser_details.csv"
@@ -119,12 +119,12 @@ $enterpriseM365ActivationReport.where({$_.'User Principal Name' -in $userUPNsFro
 
 $mobileAppDetails     = @{}
 $mobileM365ActivationReport.where({$_.'User Principal Name' -in $userUPNsFromGraphQuery}) | ForEach-Object { $mobileAppDetails[$_.'User Principal Name'] = $_.'Last Activated Date' }
-write-debug "M365 Enterprise/Mobile Activation definition hashtable populated with $($mobileAppDetails.count + $enterpriseAppDetails.count) definitions"
+write-output "M365 Enterprise/Mobile Activation definition hashtable populated with $($mobileAppDetails.count + $enterpriseAppDetails.count) definitions"
 
 $userActivityDetails  = @{}
 $m365ActivityReport.where({$_.'User Principal Name' -in $userUPNsFromGraphQuery}) | ForEach-Object { $userActivityDetails[$_.'User Principal Name'] = $_ }
 $m365ActivityReport,$mobileM365ActivationReport,$enterpriseM365ActivationReport = $null
-write-debug "M365 Usage definition hashtable populated with $($userActivityDetails.count) definitions"
+write-output "M365 Usage definition hashtable populated with $($userActivityDetails.count) definitions"
 
 $userPhoneNumber = @{}
 $teamNumberAssignments  = Get-CsOnlineUser -Filter "HostingProvider -eq 'sipfed.online.lync.com'" -Property 'LineUri','UserPrincipalName','HostingProvider'
@@ -147,7 +147,7 @@ $teamUserData | Where-Object { $_.UserPrincipalName -in $userUPNsFromGraphQuery 
 $teamUserData,$userUPNsFromGraphQuery = $null
 
 
-Write-Debug "Looping through $($licensedUsers.Count) licensed users"
+write-output "Looping through $($licensedUsers.Count) licensed users"
 foreach($user in $licensedUsers){
     $assignedLicenses = $user.LicenseAssignmentStates
     # hash table to store licenses for user
@@ -281,7 +281,7 @@ foreach($user in $licensedUsers){
     }
 }
 
-write-debug "$($usersMissingProperties.count) users missing properties (LastSignInTime or CreatedDateTime)"
+write-output "$($usersMissingProperties.count) users missing properties (LastSignInTime or CreatedDateTime)"
 
 # LDAP filter w/ UPNs
 $upnFilters = $usersMissingProperties | ForEach-Object { "(userPrincipalName=$($_.userPrincipalName))" }
@@ -293,7 +293,7 @@ $usersMissingInAD = New-Object System.Collections.ArrayList
 
 # How many users to process in each chunk of ad queries to prevent a huge LDAPfilter
 $chunkSize = 1000
-write-debug "Querying users with missing properties in chunks of 1000 from on-prem AD"
+write-output "Querying users with missing properties in chunks of 1000 from on-prem AD"
 # Loop through all filters in chunks of 1k users
 for ($i = 0; $i -lt $upnFilters.Count; $i += $chunkSize) {
     $currentFilters = $upnFilters[$i..($i+$chunkSize-1)]
@@ -302,14 +302,14 @@ for ($i = 0; $i -lt $upnFilters.Count; $i += $chunkSize) {
     try {
         # get ad results and only select the needed properties from returned data
         $adResults = Get-ADUser -LDAPFilter $ldapFilter -ResultPageSize 1000 -Properties LastLogonDate,whenCreated -Credential $ADSA_Creds | Select-Object -Property UserPrincipalName,LastLogonDate,whenCreated
-        Write-Debug "AD Returned $($adResults.count) user objects for chunk starting at index $i"
+        write-output "AD Returned $($adResults.count) user objects for chunk starting at index $i"
         $onPremUsers.AddRange($adResults)
     } catch {
-        write-debug "AD query did not return all users"
+        write-output "AD query did not return all users"
     }
 }
 
-write-debug "AD Returned $($onPremUsers.count) total user objects"
+write-output "AD Returned $($onPremUsers.count) total user objects"
 
 # create hashtable definition by UPN for on prem obj data
 # this should speed up looping through many objects considerably
@@ -318,7 +318,7 @@ $onPremUserData = @{}
 $onPremUsers | ForEach-Object { $onPremUserData[$_.UserPrincipalName] = $_ }
 $onPremUsers = $null
 
-Write-Debug "Looping through $($usersMissingProperties.Count) users to populate missing properties"
+write-output "Looping through $($usersMissingProperties.Count) users to populate missing properties"
 # loop thru users missing properties and update them using their on-prem AD object properties
 foreach($user in $usersMissingProperties) {
     # if we have an on prem obj for this user 
@@ -348,16 +348,16 @@ foreach($user in $usersMissingProperties) {
 
 # add users missing properties table to the return data table
 $returnUserLicenseData.AddRange($usersMissingProperties)
-Write-Debug "User license assignments have completed processing, outputting data table to RB"
+write-output "User license assignments have completed processing, outputting data table to RB"
 
 $returnUserLicenseData  | Export-CSV "User License Assignments.csv"
 
-Write-Debug "Querying groups with assignedLicenses greater than 0 from EntraID"
+write-output "Querying groups with assignedLicenses greater than 0 from EntraID"
 # query group license assignments
 $properties = "displayName,id,AssignedLicenses,Owners,Members"
 $licensedGroups = Get-MgGroup -All -Filter 'assignedLicenses/$count ne 0' -property $properties -ConsistencyLevel eventual -CountVariable licensedGroupCount
 
-write-debug "Found $($licensedGroups.Count) licensed groups and starting to loop through them"
+write-output "Found $($licensedGroups.Count) licensed groups and starting to loop through them"
 
 # array list for return results of group assignments
 $returnGroupLicenseData = New-Object System.Collections.ArrayList
@@ -378,7 +378,7 @@ foreach($group in $licensedGroups){
 
     }) | out-null
 }
-Write-Debug "Group license assignments have completed processing, outputting data table to RB"
+write-output "Group license assignments have completed processing, outputting data table to RB"
 
 # return group assignments
 $returnGroupLicenseData | Export-CSV "Group License Assignments.csv"
@@ -386,7 +386,7 @@ $returnGroupLicenseData | Export-CSV "Group License Assignments.csv"
 # ArrayList for returning inactive users
 $returnInactiveUsers = New-Object System.Collections.ArrayList
 
-Write-Debug "Filtering user assignments into 2nd table for Inactive Users (>90 days inactivity) with e5 for Faculty assigned"
+write-output "Filtering user assignments into 2nd table for Inactive Users (>90 days inactivity) with e5 for Faculty assigned"
 
 # filter users inactive for 90 or more days (both non-interactive and interactive sign ins)
 # first have to remove the LastSignInTimes that are strings so [datetime] cast does not error out 
@@ -413,7 +413,7 @@ $returnInactiveUsers.AddRange(
     })
 )
 
-Write-Debug "Inactive user assignments have completed processing, outputting data table to RB"
+write-output "Inactive user assignments have completed processing, outputting data table to RB"
 
 # return inactive users
 $returnInactiveUsers | Export-CSV "Inactive User License Assignments.csv"
