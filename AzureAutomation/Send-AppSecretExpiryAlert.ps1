@@ -12,8 +12,8 @@
     Last Edit: 5/9/2024
 #>
 
-. .\Connect-AzAccount.ps1
-. .\Connect-MgGraph.ps1
+Connect-AzAccount
+Connect-MgGraph -Identity -NoWelcome
 
 # Fetch the list of applications
 $appData = Get-MgApplication -All -Property "*" -expandProperty Owners
