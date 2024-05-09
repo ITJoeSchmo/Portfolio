@@ -69,9 +69,9 @@ foreach ($app in $appData) {
 
 $secretsExpiringIn30Days = $secretData | Where-Object { $_."Secret Expiration" -lt $30DaysFromToday } | Sort-Object "Secret Expiration"
 
-#$recipients = $appData.Owners.AdditionalProperties.userPrincipalName | Sort-Object -Unique
+$recipients = $appData.Owners.AdditionalProperties.userPrincipalName | Sort-Object -Unique
 
-$recipients += "joey@ku.edu"
+$recipients += "it_team_dl@domain.com"
 
 # CSS formatting for table for improved readability
 [string]$body2 = @"
