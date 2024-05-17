@@ -1,10 +1,27 @@
-# Script to sync PIA VPN IP Address list to Azure's Conditional Access policy's named locations to block access. The script will dynamically create additional named locations and re-link them to the policies needed. 
-# PIA Server Repo: https://github.com/Lars-/PIA-servers.git
-# 
-# Scripted by Joey Eckelbarger 10/30/2023
-#
-# this script is very dynamic with the NamedLocations -- it will create more if needed and remove them if not needed as the size of the list fluctuates, then re-links all to the appropriate CA policy.
-# scheduled to execute hourly 6 minutes past the hour (the list updates @ 5 min past each hr). 
+<#
+.SYNOPSIS
+    Synchronizes PIA VPN IP address list with Azure Conditional Access policy's named locations to block access.
+
+.DESCRIPTION
+    The Sync-BlockedVPNAddresses script retrieves the latest PIA VPN IP address list from the PIA Server repository and synchronizes it with Azure's Conditional Access policy's named locations.
+    The script is highly dynamic in managing named locations:
+        - It will create additional named locations if needed.
+        - It will remove unnecessary named locations if the list size decreases.
+        - It will re-link all named locations to the appropriate Conditional Access policies.
+    This ensures that access from PIA VPN IP addresses are consistently blocked according to the latest data.
+    The PIA Server repository can be found at: https://github.com/Lars-/PIA-servers.git
+
+.PARAMETER None
+
+.EXAMPLE
+    Sync-BlockedVPNAddresses
+    Description: Synchronizes the PIA VPN IP address list with Azure Conditional Access policy's named locations, ensuring that the latest VPN IP addresses are blocked.
+
+.NOTES
+    Author: Joey Eckelbarger
+    Last Edit: 10-30-2023
+
+#>
 
 # Conditional Access Policy for Blocked Sign-in Locations (policy is what determines the response to the named location conditions being met)
 $conditionalAccessPolicyId = "93d42f09-8306-4338-8b6a-9b10a8b0b5c7"
