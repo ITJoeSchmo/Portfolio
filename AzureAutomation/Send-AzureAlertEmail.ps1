@@ -1,12 +1,44 @@
+<#
+.SYNOPSIS
+    Sends an alert email with detailed log analytics results embedded as a table.
+
+.DESCRIPTION
+    The Send-AzureAlertEmail runbook is designed to be part of an action group for an alert rule in Azure.
+    When triggered by an alert from Log Analytics, this runbook sends an email to specified recipients.
+    The email includes the default alert information from Azure and embeds the detailed results from Log Analytics as a table.
+    This helps in quicker response and better understanding of alerts for various use cases.
+
+.PARAMETER WebhookData
+    The data received from the webhook that triggered the alert.
+    Type: Object
+    Required: True
+    Position: 0
+
+.PARAMETER Recipients
+    Specifies the email addresses of the recipients who will receive the alert email.
+    Type: Array
+    Required: True
+    Position: 1
+
+.EXAMPLE
+    Send-AzureAlertEmail -WebhookData $WebhookPayload -Recipients "admin@example.com", "support@example.com"
+    Description: Sends an alert email with detailed Log Analytics results embedded as a table to the specified recipients.
+
+    Screenshot of email sent can be seen here: https://i.imgur.com/GCj2c8F.png
+
+.NOTES
+    Author: Joey Eckelbarger
+
+#>
+
+
 # written by Joey Eckelbarger 2024
-# This runbook can be ran as part of an action group of an alert rule the results from Log Analytics which triggered the alert are actually embedded as a table into the email as well as the information usually sent in the default Alert email from Azure. 
-# this allows quicker response/understanding of alerts for various use-cases. 
-# screenshot of email sent here: https://i.imgur.com/GCj2c8F.png
+
+# 
 
 param (
-    [object]$WebhookData,
-    [Parameter(Mandatory=$true)]
-    [array]$Recipients
+    [Parameter(Mandatory=$true)][object]$WebhookData,
+    [Parameter(Mandatory=$true)][array]$Recipients
 )
 
 
