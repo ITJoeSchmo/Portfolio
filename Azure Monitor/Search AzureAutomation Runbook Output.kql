@@ -1,0 +1,5 @@
+// Search runbook output
+AzureDiagnostics 
+| where ResourceProvider == "MICROSOFT.AUTOMATION" 
+| where RunbookName_s == "Runbook-Name"
+| where ResultDescription has_any ("string_1","string_2","etc")
