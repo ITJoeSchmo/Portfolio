@@ -1,6 +1,21 @@
-# written by Joey Eckelbarger
-# this runbook triggers a delta sync from AD -> Entra ID. In some cases we need to run these ad-hoc in our other automated processes so that things can happen in a timely fashion.
-# generally they only take 30 seconds to 2 minutes to complete per looking at logs of the last ~30 syncs.
+<#
+.SYNOPSIS
+    Triggers a delta synchronization from Active Directory to Entra ID.
+
+.DESCRIPTION
+    The Start-ADEntraSyncCycle.ps1 runbook triggers a delta synchronization from Active Directory to Entra ID.
+    This runbook is useful for scenarios where timely synchronization between Active Directory and Entra ID is critical.
+    It helps ensure that updates made in AD are quickly propagated to Entra ID, minimizing delays in automated processes.
+    The delta sync generally takes 30 seconds to 2 minutes to complete, based on logs from the last 30 syncs.
+
+.EXAMPLE
+    Start-ADEntraSyncCycle.ps1
+    Description: Triggers a delta synchronization from Active Directory to Entra ID, ensuring that changes in AD are promptly reflected in Entra ID.
+
+.NOTES
+    Author: Joey Eckelbarger
+#>
+
 
 $vault_creds = Get-AutomationPSCredential -Name 'Vault_AzureAutomation_Approle'
 Connect-Vault -vaultaddress "vault.domain.com" -Credential $vault_creds
