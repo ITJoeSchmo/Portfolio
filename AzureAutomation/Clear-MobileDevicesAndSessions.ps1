@@ -1,5 +1,24 @@
-# this runbook is triggered via API call by the security team when an account is identified as compromised.
-# it clears all active login sessions + devices trusted by exchange. 
+<#
+.SYNOPSIS
+    Clears all active login sessions via MSGraph and trusted devices for a specified user in Exchange.
+
+.DESCRIPTION
+    This runbook is specifically designed to be used in response to security incidents where an account is identified as compromised.
+    It ensures that any active sessions and trusted devices associated with the specified user are promptly cleared to prevent further unauthorized access.
+
+.PARAMETER Username
+    Specifies the username of the compromised account for which active sessions and trusted devices need to be cleared.
+    Type: String
+    Required: True
+    Position: 0
+
+.EXAMPLE
+    Clear-MobileDevicesAndSessions.ps1 -Username "johndoe"
+    Description: Clears all active login sessions and removes all trusted devices for the user 'johndoe' in Exchange.
+
+.NOTES
+    Author: Joey Eckelbarger
+#>
 
 param(
     [string]$Username
@@ -31,7 +50,7 @@ if(-not $ActiveSyncDevices){
 }
 
 # connect graph
-. ./Connect-MgGraph.ps1 
+Connect-MgGraphb -Identity -NoWelcome
 
 $userPrincipalName = "$Username@domain.edu"
 
