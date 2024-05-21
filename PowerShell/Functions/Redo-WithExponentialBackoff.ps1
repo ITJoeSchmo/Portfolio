@@ -48,6 +48,7 @@
     Author: Joey Eckelbarger
 #>
 
+
 function Redo-WithExponentialBackoff {
     param(
         [System.Management.Automation.ErrorRecord]$ErrorRecord,
@@ -56,9 +57,23 @@ function Redo-WithExponentialBackoff {
         [double]$BackoffFactor = 2.0
     )
 
-    # trim whitespace + create scriptblock object
+    # we need to account for if the script block is supposed to write to a var which the rest of the script may be dependent on being populated
+    # if we just execute the script block again and it writes out a variable, unfortunately that is stored in the function scope only
+    # so we need to check if it writes out a variable and change it to write to the script scope before re-execution
+    $variablePattern = '^\$\w+\s*=\s*'
+
+    # trim whitespace
+    $lineToExecute = ($ErrorRecord.InvocationInfo.Line).Trim()
+
+    # if the line has a variable written out
+    if($lineToExecute -match $variablePattern){ 
+        # replace the FIRST $ with $script: 
+        $lineToExecute = $lineToExecute -replace '^\$', '$script:'
+    }
+
+    # create scriptblock object
     # can't seem to natively convert a string -> scriptblock obj without using this .NET method
-    $ScriptBlock = [Scriptblock]::Create(($ErrorRecord.InvocationInfo.Line).Trim())
+    $ScriptBlock = [Scriptblock]::Create($lineToExecute)
 
     Write-Output "Re-executing the following ScriptBlock with exponential back-off:`n`t$ScriptBlock"
 
@@ -67,7 +82,7 @@ function Redo-WithExponentialBackoff {
     while ($currentRetry -le $MaxRetries) {
         try {
             # Try to execute the script block again
-            & $ScriptBlock
+            Invoke-Command -ScriptBlock $ScriptBlock -NoNewScope
             Write-Output "Operation succeeded on retry #$($currentRetry)."
             return
         } catch {
