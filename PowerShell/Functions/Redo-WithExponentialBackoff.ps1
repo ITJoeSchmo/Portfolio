@@ -81,8 +81,6 @@ function Redo-WithExponentialBackoff {
             Start-Sleep -Seconds $delay
             
         }
-
-        read-host continue?
     }
 
     if ($currentRetry -ge $MaxRetries) {
