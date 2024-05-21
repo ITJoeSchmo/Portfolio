@@ -64,7 +64,7 @@ function Redo-WithExponentialBackoff {
 
     $currentRetry = 1
 
-    while ($currentRetry -lt $MaxRetries) {
+    while ($currentRetry -le $MaxRetries) {
         try {
             # Try to execute the script block again
             & $ScriptBlock
@@ -81,10 +81,13 @@ function Redo-WithExponentialBackoff {
             Start-Sleep -Seconds $delay
             
         }
+
+        read-host continue?
     }
 
-    if ($currentRetry -eq $MaxRetries) {
+    if ($currentRetry -ge $MaxRetries) {
         Write-Output "Operation failed after $MaxRetries retries... Throwing Last ErrorRecord:"
+        Write-Error $newErrorRecord
         throw $newErrorRecord
     }
 }
