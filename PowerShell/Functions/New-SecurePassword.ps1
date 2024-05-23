@@ -9,28 +9,28 @@
 
 .PARAMETER length
     Specifies the length of the generated password.
-	Default:  65
+    Default:  65
     Type:     Int
     Required: True
     Position: 0
 
 .PARAMETER characterSet
     Specifies the set of characters to use when generating the password.
-	Default:  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?',
+    Default:  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?',
     Type:     String
     Required: False
     Position: 1
 
-.PARAMETER minimumCharacterCountPerType
-    Specifies the minimum number of each character type (e.g., uppercase, lowercase, numbers, special characters) that must be included in the password.
-    Default:  3
-	Type:     Integer
+.PARAMETER $minimumLowerUpperNumbersSymbols
+    Specifies the minimum number of each character type [0] = Lower, [1] = Upper, [2] = Numbers, [3] = Symbols which must be included in the password.
+    Default:  @(3,3,3,3)
+    Type:     Array
     Required: False
     Position: 2
 
 .PARAMETER username
     Specifies the username for which the PSCredential object is being created.
-	Default:  " "
+    Default:  " "
     Type:     String
     Required: False
     Position: 3
@@ -46,10 +46,10 @@
 function New-SecurePassword {
     [CmdletBinding()]
     param (
-        [int]$length = 65,
+        [int]$length          = 65, # 25 is a good standard for privileged accts; I noticed we usually go with 65 in Vault
         [string]$characterSet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?',
-        [int]$minCharCountPerType = 3, # minimum uppercase, lowercase, number, and symbols a generated pwd should have,
-        [string]$userName = " "        # you can set a username for the returned PSCredential, may be helpful in some cases
+        [array]$minimumLowerUpperNumbersSymbols = @(3,3,3,3), # Minimums [0] = Lowercase, [1] = Uppercase, [2] = Numbers, [3] = Symbols
+        [string]$userName     = " "        # you can set a username for the returned PSCredential, may be helpful in some cases
     )                                  # it is easier to decrypt a password from a [PSCredential] than it is from a [SecureString]
                                        # $credential.GetNetworkCredential().Password 
 
@@ -81,15 +81,14 @@ function New-SecurePassword {
         # evaluate # of each char in the generated password to ensure it meets our criteria
         # logic is: after removing the specified chars, the string length should be less than the password length minus the minimum char count ($minCharCountPerType)
         # e.g. evaluate p4$$w0rd for a minimum of 2 numbers: p4$$w0rd (8 char) -> p$$wrd (6 char) = 2 char difference, so there are 2 numbers -> $true
-        $Lower   = ($Password -creplace $lowerCasePattern,'').Length -le ($Password.Length - $minCharCountPerType)
-        $Upper   = ($Password -creplace $upperCasePattern,'').Length -le ($Password.Length - $minCharCountPerType)
-        $Number = ($Password -replace $numberPattern,    '').Length -le ($Password.Length - $minCharCountPerType)
-        $Symbol = ($Password -replace $symbolPattern,    '').Length -le ($Password.Length - $minCharCountPerType)
+        $Lower   = ($Password -creplace $lowerCasePattern,'').Length -le ($Password.Length - $minimumLowerUpperNumbersSymbols[0])
+        $Upper   = ($Password -creplace $upperCasePattern,'').Length -le ($Password.Length - $minimumLowerUpperNumbersSymbols[1])
+        $Number  = ($Password -replace $numberPattern,    '').Length -le ($Password.Length - $minimumLowerUpperNumbersSymbols[2])
+        $Symbol  = ($Password -replace $symbolPattern,    '').Length -le ($Password.Length - $minimumLowerUpperNumbersSymbols[3])
 
         $passwordMeetsAllCriteria = $Lower -and $Upper -and $Number -and $Symbol
 
         if(-Not $passwordMeetsAllCriteria){
-            Write-Output "Generated password did not contain the minimum of $($minCharCountPerType) of each character types: lower, special, and numerical. Regenerating..."
             continue retry # restart loop; this jumps back to :retry 
         }
         
