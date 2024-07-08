@@ -1,0 +1,7 @@
+- name: Install RSAT Tools for Automation Servers
+  ansible.windows.win_feature:
+    name: '{{ item }}'
+    state: present
+  loop:
+    - RSAT-AD-PowerShell
+    - RSAT-DNS-Server
