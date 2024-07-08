@@ -1,0 +1,143 @@
+- name: Update All PowerShell Modules
+  ansible.windows.win_powershell:
+    script: |
+      Set-PSRepository -name PSGallery -InstallationPolicy Trusted
+      # Get the latest version of each currently installed module, installed w/ PowerShellGet
+      $modules = Get-InstalledModule
+
+      # splice the 1st word from modules containing . so we can search current versions using Find-Module very efficiently
+      $moduleNamePrefixes = $modules.Name -match "\." | % { $_.Split(".")[0] } | Sort-Object -Unique
+
+      # hashtable to store current version in
+      $currentlyAvailableVersion = @{}
+      # query bulk module data using prefix wildcard search
+      $bulkModuleData = $moduleNamePrefixes | ForEach-Object { Find-Module "$_.*" }
+      # build up version definitions
+      $bulkModuleData | Where-Object { $_.Name -in $modules.Name } | ForEach-Object { $currentlyAvailableVersion.Add($_.Name,$_.Version) }
+
+      [array]$remainingModuleNames = $modules.Name | Where-Object { $_ -notin $currentlyAvailableVersion.Keys }
+      Find-Module $remainingModuleNames            | ForEach-Object { $currentlyAvailableVersion.Add($_.Name,$_.Version) }
+
+      # Determine which have newer versions
+      [array]$modulesToUpdate = $modules | Where-Object { $_.Version -lt $currentlyAvailableVersion[$_.Name] } | Select-Object Name,@{N="Version";E={$currentlyAvailableVersion[$_.Name]}}
+
+      if($modulesToUpdate){
+          Write-Output "Attempting to update $($modulesToUpdate.Count) module(s): $($modulesToUpdate.Name -join ', ')"
+      } else {
+          $Ansible.Changed = $False
+          Write-Output "No modules needed updated"
+          exit
+      }
+
+      $jobs = @()
+      foreach ($module in $modulesToUpdate) {
+          $jobs += Start-Job -Name "Updating $($module.Name) to $($module.Version)" -ScriptBlock {
+              Update-Module $using:module.Name -RequiredVersion $using:module.Version -Force | Out-Null
+          }
+
+          start-sleep -seconds 5
+
+          # limit running jobs to 5 maximum so we don't overwhelm the host.
+          while(@(Get-Job | Where { $_.State -eq "Running" }).Count -ge 5) {
+              Start-Sleep -Seconds 10
+          }
+      }
+
+      Write-Output "Spawned $($jobs.count) parallel update module jobs"
+      Get-Job | Wait-Job
+      Write-Output "All jobs completed."
+
+- name: Uninstall Old Modules If Multiple Versions Installed Concurrently After Updating
+  ansible.windows.win_powershell:
+    script: |
+      # Get all installed modules
+      $modules = get-module -ListAvailable | Where-Object {$_.ModuleBase -like "C:\Program Files\WindowsPowerShell\Modules\*"}
+
+      # Group modules by name and use Group-Object to determine which have multiple concurrently installed versions
+      $modulesWithMultipleVersions = $modules | Group-Object -Property Name | Where-Object { $_.Count -gt 1 }
+
+      if($modulesWithMultipleVersions){
+          Write-Output "Attempting to remove $($modulesWithMultipleVersions.Count) modules with multiple versions: $($modulesWithMultipleVersions.Name -join ', ')"
+      } else {
+          $Ansible.Changed = $False
+          Write-Output "No modules had multiple versions installed."
+          exit
+      }
+
+      # Loop through each group of modules
+      $jobs = @()
+      foreach ($group in $modulesWithMultipleVersions) {
+          # Sort the versions in descending order and skip the newest version
+          $olderVersions = $group.Group | Sort-Object -Property Version -Descending | Select-Object -Skip 1
+
+          # Uninstall each of the older versions
+          foreach ($module in $olderVersions) {
+              start-sleep -seconds 5
+
+              $jobs += Start-Job -Name "Uninstall $($module.Name):$($module.Version)" -ScriptBlock {
+                  try {
+                      # remove module from session just in case it is a default
+                      Remove-Module    -Name $using:module.Name -ErrorAction Ignore
+                      Uninstall-Module -Name $using:module.Name -RequiredVersion $using:module.Version -Force -ErrorAction Stop | Out-Null
+                  } catch {
+                      # if the module is being used in the background, keep trying until successfully uninstalled...
+                      if($_.Exception.Message -like "*is in currently in use or you don't have the required permissions."){
+                          Do{
+                              $stillInstalled = Get-Module $using:module.Name -ListAvailable | where-object {$_.Version -eq $using:module.Version}
+
+                              Remove-Module    -Name $using:module.Name -ErrorAction Ignore
+                              Uninstall-Module -Name $using:module.Name -RequiredVersion $using:module.Version -Force | Out-Null
+
+                              start-sleep -seconds 30
+                          } Until (-not $stillInstalled)
+                      }
+                  }
+              }
+
+              # limit running jobs to 5 maximum so we don't overwhelm the host.
+              while(@(Get-Job | Where { $_.State -eq "Running" }).Count -ge 5) {
+                  Start-Sleep -Seconds 10
+              }
+          }
+      }
+
+      Write-Output "Spawned $($jobs.count) parallel uninstall jobs"
+      Wait-Job -Id $jobs.Id
+      Write-Output "All jobs completed."
+
+- name: Configure Git Settings and Initialize the Repository
+  ansible.windows.win_powershell:
+    script: |
+      git config --system user.name "{{ git_user_displayname }}"
+      git config --system user.email "Ansible@domain.com"
+      git clone https://oauth2:{{ git_token }}@gitlab.domain.com/powershell-modules.git "{{ git_local_repo_path }}"
+  args:
+    creates: "{{ git_local_repo_path }}\\.git\\"
+
+- name: Pull Git Repo Changes Down
+  ansible.windows.win_powershell:
+    script: |
+      git clean -d -f .
+      git pull
+  args:
+    chdir: "{{ git_local_repo_path }}"
+  register: result
+  changed_when: '"Already up to date." not in result.output'
+
+- name: Robocopy Updated Files to Git Repo Local Path
+  ansible.windows.win_shell: robocopy "{{ powershell_module_path }}" "{{ git_local_repo_path }}" /MIR /log+:"C:\\Temp\\powershell_modules_robocopy.log"
+  args:
+    executable: cmd
+  register: result
+  failed_when: result.rc >= 8
+  changed_when: result.rc != 0
+
+
+- name: Stage Files in Modules Path and Commit to Git
+  ansible.windows.win_powershell:
+    script: |
+      git add .
+      git commit -m "{{ commit_message }}"
+      git push -u origin master
+  args:
+    chdir: "{{ git_local_repo_path }}"
