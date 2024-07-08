@@ -1,0 +1,55 @@
+- name: Install Git if Not Installed
+  ansible.windows.win_powershell:
+    script: |
+      # Check registry uninstall path to see if Git is installed
+      $gitIsInstalled = test-path("hklm:SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Git_is1")
+
+      if(-Not $gitIsInstalled){
+          # Set the URL of the Git download page
+          $url = "https://git-scm.com/download/win"
+
+          # Without a user agent, the page returns the URL to the 32 bit installer not the 64 bit
+          $userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          try {
+              [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+              # Use Invoke-WebRequest to fetch the content of the webpage
+              $pageContent = Invoke-WebRequest -Uri $url -UserAgent $userAgent -UseBasicParsing -ErrorAction Stop
+
+              # Scrape the newest stable release download link from page data
+              $downloadLink = $pageContent.Links.FindById('auto-download-link').href
+
+              # Set the location for the Git installer to the machines TEMP location
+              $gitInstaller = "$env:TEMP\git-installer.exe"
+
+              # Download the Git installer from the official website
+              Invoke-WebRequest -Uri $downloadLink -OutFile $gitInstaller -UseBasicParsing -ErrorAction Stop
+
+              # Execute the Git installer with silent installation flags
+              Start-Process -Wait -FilePath $gitInstaller -ArgumentList "/VERYSILENT", "/NORESTART", "/LOG=$env:TEMP\git_install.log", "/Group=Git", "/NoIcons=0", "/SetupType=default", "/Components=gitlfs" -ErrorAction Stop
+
+              # Cleanup the installer
+              Remove-Item -Path $gitInstaller -Force
+
+              Write-Output "Git installation completed!"
+
+              # Get the current system-wide PATH
+              $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+
+              # Update the PATH
+              $newPath = "C:\Program Files\Git\bin;" + $currentPath
+
+              # Set the updated PATH
+              [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
+
+              Write-Output "Added bin folder to PATH env variable!"
+
+              $Ansible.Changed = $true
+          } catch {
+              $Ansible.Failed = $true
+              Throw $_
+          }
+      } else {
+          Write-Output "Git already installed"
+          $Ansible.Changed = $false
+      }
