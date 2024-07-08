@@ -1,0 +1,31 @@
+- name: Setup Automation Platform Server
+  hosts: azure_automation_hybrid_workers
+  roles:
+    - install_rsat
+    - install_git
+
+- name: Update PowerShell Modules and Commit to GitLab
+  hosts: HYBRID_WORKER_01.domain.com
+  roles:
+    - role: update_powershell_modules
+      when: inventory_hostname == "HYBRID_WORKER_01.domain.com"
+  vars:
+    git_token: "{{ lookup('community.hashi_vault.hashi_vault', \
+                   'team/kv/data/gitlab:AnsiblePowerShellAutomationModuleSync \
+                    auth_method={{ auth_method }}') }}"
+    git_user_displayname: "Ansible PowerShell Automation Module Sync"
+    git_local_repo_path: C:\Temp\PowerShellModules
+    powershell_module_path: C:\Program Files\WindowsPowerShell\Modules
+    commit_message: "Updated and Synced PowerShell modules from {{ inventory_hostname }} at {{ ansible_date_time.month }}-{{ ansible_date_time.day }}-{{ ansible_date_time.year }} {{ ansible_date_time.hour }}:{{ ansible_date_time.minute }}"
+
+- name: Redistribute Updated PowerShell Modules
+  hosts: azure_automation_hybrid_workers
+  roles:
+    - sync_powershell_modules
+  vars:
+    git_token: "{{ lookup('community.hashi_vault.hashi_vault', \
+                   'team/kv/data/gitlab:AnsiblePowerShellAutomationModuleSync \
+                    auth_method={{ auth_method }}') }}"
+    git_user_displayname: "Ansible PowerShell Automation Module Sync"
+    git_local_repo_path: C:\Temp\PowerShellModules
+    powershell_module_path: C:\Program Files\WindowsPowerShell\Modules
