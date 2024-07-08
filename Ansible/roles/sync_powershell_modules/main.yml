@@ -1,0 +1,45 @@
+- name: Configure Git Settings and Clone the Repository
+  ansible.windows.win_powershell:
+    script: |
+      git clone https://oauth2:{{ git_token }}@gitlab.domain.com/powershell-modules.git "{{ git_local_repo_path }}"
+  args:
+    creates: "{{ git_local_repo_path }}\\.git\\"
+
+- name: Pull Git Repo Changes Down
+  ansible.windows.win_powershell:
+    script: |
+      git clean -d -f .
+      git pull
+  args:
+    chdir: "{{ git_local_repo_path }}"
+  register: result
+  changed_when: '"Already up to date." not in result.output'
+
+- name: Write Environment Variable "EXCLUDE" to exclude "Lonely" Module Folders (managed by 3rd Party app)
+  ansible.windows.win_powershell:
+    script: |
+      $sourceModules 		  = Get-ChildItem "{{ git_local_repo_path }}"
+      $destinationModules = Get-ChildItem "{{ powershell_module_path }}"
+
+      $eXcludeDirectories = Compare-Object -ReferenceObject $sourceModules -DifferenceObject $destinationModules | Where-Object { $_.SideIndicator -eq "=>" }
+      $eXcludeDirectories = $eXcludeDirectories | Foreach-Object { "`"{{ powershell_module_path }}\$($_.InputObject)`" " }
+      $eXcludeDirectories += '"{{ git_local_repo_path }}\.git"'
+
+      $excludeList = $eXcludeDirectories -join ""
+
+      if($excludeList -eq $ENV:EXCLUDE){
+          $Ansible.Changed = $false
+          Write-Output "No changes to exclusion list"
+      } else {
+          [Environment]::SetEnvironmentVariable('EXCLUDE', $excludeList, "Machine")
+          Write-Output "Exclusion list was updated"
+      }
+
+- name: Robocopy Updated Files to PowerShell Module Path
+  ansible.windows.win_shell: robocopy {{ git_local_repo_path }} "{{ powershell_module_path }}" /MIR /b /xd %EXCLUDE% /xf "{{ git_local_repo_path }}\robocopy.log" /log+:"{{ git_local_repo_path }}\robocopy.log"
+  args:
+    executable: cmd
+    chdir: "{{ git_local_repo_path }}"
+  register: result
+  failed_when: result.rc >= 8
+  changed_when: result.rc != 0
