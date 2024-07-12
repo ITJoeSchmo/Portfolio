@@ -4,6 +4,11 @@ This repository contains a collection of scripts and tools aimed at automating v
 
 ## Folder Structure and Contents
 
+### Ansible
+
+- This folder contains Ansible playbooks. Currently, the one playbook is used to syncronize PowerShell modules up to a Git repo and then sync those back down to multiple automation servers.
+
+
 ### Azure FunctionApp
 
 - This folder contains a PowerShell function app designed to relay SaaS Live Events logs from HTTP to an Azure Log Analytics workspace, providing an integration solution with Azure which was not natively supported by the SaaS.
