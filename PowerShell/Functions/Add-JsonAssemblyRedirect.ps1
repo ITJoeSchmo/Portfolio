@@ -6,6 +6,8 @@
     While this solution has been leveraged in a PRODUCTION capacity by my team for over 5 months without issue, the author and contributors are not responsible for any damage or issues caused by the use of this script. 
     Always test scripts in a non-production environment before deploying them into a production setting.
 
+    The only quirk is some modules have to be imported in a specific order to be happy if more than 1 is used in your script: 1) Az.* 2) Graph.* 3) ExchangeOnline 
+
 .SYNOPSIS
     Adds a new assembly redirection for Newtonsoft.Json to XML configuration files for PowerShell executables to work-around assembly conflicts.
 
@@ -14,6 +16,7 @@
     This script is particularly useful for working around assembly conflicts when 2 imported modules different versions of the Newtonsoft.Json assembly.
 
     The script will backup the current configuration file to $ENV:temp, take ownership and grant your user FullControl, then insert the XML into the config, then rollback the ownership/permissions.
+    The only quirk is some modules have to be imported in a specific order to be happy if more than 1 is used in your script: 1) Az.* 2) Graph.* 3) ExchangeOnline 
 
 .NOTES
     Author: Joey Eckelbarger
