@@ -1,3 +1,5 @@
+#Requires -RunAsAdministrator
+
 <#
 .DISCLAIMER
     This script is provided "as is" without warranty of any kind, express or implied. Use this script at your own risk. 
@@ -50,6 +52,7 @@ $configFilePaths = @(
     }
 }
 
+
 # write out options to user
 foreach($file in $configFilesOnHost){
     Write-Output "[$($configFilesOnHost.IndexOf($file))] $file"
@@ -75,12 +78,14 @@ if($configFilesOnHost[$select] -eq $configFilesOnHost[-1]){
 
 # if there is a selection, continue
 if($configFilesOnHost[$select]){
+    $startTime = Get-Date # used to confirm .config is modified
+
     $appConfigPath = $configFilesOnHost[$select]
 
     # backup targeted config file
     Try {
         $backup = Copy-Item -Path $appConfigPath -Destination "$env:TEMP" -Force -PassThru -ErrorAction Stop
-        Write-Output "Created backup copy of the config $($backup.FullName)"
+        Write-Output "`n`nCreated backup copy of the config $($backup.FullName)"
     } Catch {
         Throw "Failed to copy backup config to $($env:TEMP); halting execution..."
     }
@@ -89,7 +94,7 @@ if($configFilesOnHost[$select]){
     # take ownership + grant fullcontrol permissions to config file
     Try {
         $originalACL = Get-ACL $appConfigPath -ErrorAction Stop
-        Write-Output "Retrieved permissions on file $appConfigPath"
+        Write-Output "`nRetrieved permissions on file $appConfigPath"
         $newACL = $originalACL
 
         $objUser    = New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, $env:USERNAME)
@@ -116,7 +121,7 @@ if($configFilesOnHost[$select]){
 
         # if there are NO bindingRedirects AND NO binding redirects of NewtonSoft.Json, insert them 
         if(-Not $appconfig.configuration.runtime.assemblyBinding -and -Not $NewtonsoftJsonRedirects){
-            Write-Output "Inserting redirect into XML..."
+            Write-Output "`n`nInserting redirect into XML..."
 
             $importedNode = $appconfig.ImportNode($bindingRedirect.assemblyBinding, $true)
             $appconfig.configuration.runtime.InsertAfter($importedNode,$appConfig.configuration.runtime.AppContextSwitchOverrides[-1]) | Out-Null
@@ -124,7 +129,7 @@ if($configFilesOnHost[$select]){
         # if there is an assemblyBinding within the XML but not for Newtonsoft.Json, we  need to append the XML under dependentAssembly key
         } elseif($appconfig.configuration.runtime.assemblyBinding -and -Not $NewtonsoftJsonRedirects){
             
-            Write-Output "There are bindingRedirects defined in the configuration, but not for NewtonSoft.Json. Inserting redirect..."
+            Write-Output "`n`nThere are bindingRedirects defined in the configuration, but not for NewtonSoft.Json. Inserting redirect into XML..."
             
             $importedNode = $appconfig.ImportNode($bindingRedirect.assemblyBinding.dependentAssembly, $true)
             $appconfig.configuration.runtime.assemblyBinding.AppendChild($importedNode)  | Out-Null
@@ -138,6 +143,12 @@ if($configFilesOnHost[$select]){
         Write-Output "Attempting to save new XML..."
         $appConfig.Save($appConfigPath) | Out-Null
 
+        if((get-childitem $appConfigPath).LastWriteTime -gt $startTime){
+            Write-Output "Configuration file successfully updated!"
+        } else {
+            Write-Error "Updated configuration file failed to save per LastWriteTime on the file..."
+        }
+
     } Catch {
         Throw $_
     } 
@@ -145,7 +156,7 @@ if($configFilesOnHost[$select]){
     # roll back ownership/permissions 
     Try {
         Set-ACL $appConfigPath -AclObject $originalACL -ErrorAction Stop
-        Write-Output "Rolled back ownership and permissions on the file $appConfigPath"
+        Write-Output "`n`nRolled back ownership and permissions on the file $appConfigPath"
     } catch {
         Write-Error "Failed to rollback permissions on $appConfigPath -- set ownership to TrustedInstaller, remove FullControl from $($env:USER)"
         Throw $_
