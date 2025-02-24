@@ -1,0 +1,15 @@
+SecurityEvent
+| where EventData contains "Name="
+| extend EstimatedSizeB = estimate_data_size(EventData)
+| summarize 
+    EventCount = count(),  
+    HasEventData = any(isnotnull(EventData)), 
+    TotalEventDataSizeGB = format_bytes(sum(EstimatedSizeB), 2, "GB"),
+    SampleRow = any(pack_all(true))  // Capture a full sample
+by EventID, Activity
+| extend ParsedXML = parse_xml(tostring(SampleRow.EventData))  // Parse XML only from SampleRow
+| extend PropertyNames = extract_all(@"Name=""([^""]+)""", tostring(SampleRow.EventData))  // Extract all @Name values
+| extend SampleRowKeys = bag_keys(SampleRow)  // Get actual column names from SampleRow
+| extend MissingProperties = set_difference(PropertyNames, SampleRowKeys)  // Compare XML properties to existing columns
+| project EventID, Activity, EventCount, HasEventData, TotalEventDataSizeGB, SampleRow, PropertyNames, SampleRowKeys, MissingProperties
+| order by EventCount desc
