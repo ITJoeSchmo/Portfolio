@@ -25,7 +25,7 @@
     Version: 1.0 - Initial implementation for updating MECM with the latest VMware Tools package.
 #>
 param(
-    [Boolean]$TestQA = $false # Run only on servers on domain: qahome, tsthome
+    [Boolean]$TestQA = $false # deploy only to TEST/QA/DEV collection(s)
 )
 
 $fileshare_sa   = Read-VaultSecret -enginepath "it_infra/kv" -secretpath "ad/domain.tld/fileshare_sa@domain.tld" -keyname "fileshare_sa@domain.tld"
