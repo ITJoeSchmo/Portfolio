@@ -67,7 +67,7 @@ if($latestToolsVersion -gt $mecmToolsVersion -or $TestQA -eq $false){
 
     if($latestToolsVersion -eq $mecmToolsVersion -and $TestQA -eq $false){
         try {
-            Write-Output "VMwareTools is up-to-date and only needs deployed to ITES_All (PROD)"
+            Write-Output "VMwareTools is up-to-date and only needs deployed to PROD"
             Connect-MECM {
                 Get-CMApplication $CMApplicationName | New-CMApplicationDeployment -AvailableDateTime '01/01/2020 00:00:00' -CollectionName $primaryCollection -DeployAction Install -DeployPurpose Required  -UserNotification DisplaySoftwareCenterOnly -ErrorAction Stop
             }
