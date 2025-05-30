@@ -33,6 +33,6 @@ This repository contains a collection of scripts and tools aimed at automating v
 - **Subfolders**:
   - **Advent of Code 2023**: Scripts for solving Advent of Code 2023 challenges.
   - **Functions**: Reusable pieces of code (exponential back-off retry function, send-email, etc).
-  - **Modules**: Custom HashiCorp Vault module to interact with HashiCorp Vault in PowerShell securely via the API.
+  - **Modules**: Custom modules and "sub-modules." HashiCorp Vault module to interact with Vault securely via the API.
   - **Reports**: Scripts designed to compile and generate reports (M365 Product/License Usage).
   - **Snippets**: Small, reusable scripts (creating a scheduled task for a 1-off server reboot at 1 AM, Adding Graph API Permissions, etc)
