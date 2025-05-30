@@ -8,7 +8,7 @@
     and redeploys the application to specific device collections. It optionally supports limiting deployment to QA and test collections using the -TestQA flag.
 
 .PARAMETER TestQA
-    A boolean switch that, when enabled, limits deployment to QA and test environments only (i.e., targets collections "TestDev and QAHOME" and "ITES_Testing").
+    A boolean switch that, when enabled, limits deployment to QA and test environments only
     If disabled (default), the script performs a full update and deployment process, including the primary production collection "VMWare Tools - Install".
 
 .EXAMPLE
