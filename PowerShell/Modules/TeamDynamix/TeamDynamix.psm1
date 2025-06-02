@@ -21,7 +21,7 @@
 #>
 function Connect-TDX {
     param(
-        [string]$URI = "https://services.ku.edu/TDWebApi/api/auth",
+        [string]$URI = "$baseAPIURL/TDWebApi/api/auth",
         [PSCredential]$Credential
     )
 
@@ -187,6 +187,126 @@ function Update-TDXTicket {
     } | ConvertTo-Json
 
     Invoke-TDXRestMethod -URI "$apiURI/$AppID/tickets/$TicketID/feed" -Method POST -Body $Body
+}
+
+<#
+.SYNOPSIS
+    Synchronizes a specified attribute value from a parent CI to its child CIs in TDX
+
+.DESCRIPTION
+    Retrieves a specified attribute from a parent Configuration Item (CI) 
+    and applies the same value to all of its direct or indirect child CIs. This function is used to simulate 
+    inheritance of properties in CMDB systems that do not natively support value inheritance.
+
+.PARAMETER ParentCI
+    The identifier (ID) of the parent Configuration Item whose attribute should be synced.
+
+.PARAMETER ChildCI
+    Optional The identifier (ID) of the child Configuration Item whose attribute should match its parent.
+
+.PARAMETER AttributeName
+    The name of the custom attribute OR built-in property to synchronize.
+
+.PARAMETER Recurse
+    Indicates whether the sync should include all nested child CIs recursively.
+
+.EXAMPLE
+    Sync-CIAttributeDownstream -ParentCI "Server-01" -AttributeName "Owner" -Recursive
+
+    This example syncs the 'Owner' attribute from 'Server-01' to all of its child Configuration Items recursively.
+
+.NOTES
+    Author: Joey Eckelbarger
+    Created: 2025-04-24
+#>
+function Sync-CIAttributeDownstream {
+    param(
+        [Int32]$AppID,
+        [String]$ParentCI,
+        [String[]]$ChildCI,
+        [String]$AttributeName,
+        [Switch]$Recurse = $false,
+        [String]$baseAPIURL
+    )
+
+
+    $builtInProperty = $false
+    $parentCiData    = Invoke-TDXRestMethod -Uri "$baseAPIURL/TDWebApi/api/$AppID/cmdb/$ParentCI" -Method GET
+
+    # get current attribute value from parent 
+    $parentAttributeValue = $parentCiData.Attributes | Where-Object {$_.Name -eq $AttributeName}
+
+    # if there isnt a custom attribute named $AttributeName on the ParentCI, lets check if we are syncing a built in property
+    if(-not $parentAttributeValue -and $parentCiData.PSObject.Properties.Name -contains $AttributeName){
+        $builtInProperty = $true
+        $parentAttributeValue = $parentCiData.$AttributeName
+    }
+    
+    [array]$childrenCIs = if($ChildCI){
+        # return data to to $childrenCIs =
+        $ChildCI
+    } else {
+        # get children of parent CI
+        $relationships = Invoke-TDXRestMethod -Uri "$baseAPIURL/TDWebApi/api/$appId/cmdb/$ParentCI/relationships" -Method GET
+        [array]$childrenCIs = $relationships | Where-Object {$_.ParentID -eq $ParentCI} | Select-Object -ExpandProperty ChildID
+
+        if($recurse){
+            $childrenToCheck = $childrenCIs 
+
+            # loop through and get all nested children
+            do {
+                foreach($child in $childrenToCheck){
+                    $childRelationships = Invoke-TDXRestMethod -Uri "$baseAPIURL/TDWebApi/api/$appId/cmdb/$child/relationships" -Method GET
+                    
+                    [array]$newChildCIs = $childRelationships | Where-Object {$_.ParentID -eq $child} | Select-Object -ExpandProperty ChildID
+                    
+                    $childrenCIs += $newChildCIs
+                    start-sleep -seconds 1
+                }
+
+                $childrenToCheck = $newChildCIs
+                
+            } until ($newChildCIs.count -eq 0)
+        }
+        # return data to to $childrenCIs =
+        $childrenCIs 
+    }
+
+    foreach($child in $childrenCIs){
+        $childCiData  = Invoke-TDXRestMethod -Uri "$baseAPIURL/TDWebApi/api/$AppID/cmdb/$child" -Method GET
+
+        if($builtInProperty){
+            # ensure value isnt already set to match
+            if($childCiData.$AttributeName -ne $parentAttributeValue){
+                # overwrite built in property value
+                $childCiData.$AttributeName = $parentAttributeValue
+            } else {
+                #Write-Warning "Child CI $($childCiData.Name) ($($childCiData.ID)) already has the property $attributeName set to $parentAttributeValue"
+                # return already set (returns as-is object w/ property "AlreadySynced" = True added)
+                $childCiData | Select-Object *,@{Name="AlreadySynced";E={$true}} # return current data
+                continue
+            }
+            
+        } else {
+            # remove current attribute if present
+            if($childCiData.Attributes -notcontains $parentAttributeValue){
+                $childCiData.Attributes = $childCiData.Attributes | Where-Object {$_.Name -ne $AttributeName}
+                # add new attribute value 
+                $childCiData.Attributes += $parentAttributeValue
+            } else {
+                #Write-Warning "Child CI $($childCiData.Name) ($($childCiData.ID)) already has the property $attributeName set to $parentAttributeValue"
+                # return already set (returns as-is object w/ property "AlreadySynced" = True added)
+                $childCiData | Select-Object *,@{Name="AlreadySynced";E={$true}} # return current data
+                continue
+            }
+
+        }
+
+        # update CI 
+        $jsonBody = $childCiData | ConvertTo-Json
+        Invoke-TDXRestMethod -Uri "$baseAPIURL/TDWebApi/api/$appId/cmdb/$child" -Method PUT -Body $jsonBody
+        start-sleep -seconds 1
+    }
 }
 
 
