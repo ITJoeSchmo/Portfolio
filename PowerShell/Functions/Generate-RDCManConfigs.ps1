@@ -33,7 +33,7 @@ if(-Not (Test-Path($RDCManPath))){
 
 foreach($domain in $domainNames){
 
-    $Credential = Get-Credential -Message "Input the username/password to be used to authenticate to this domain. `nLeave blank if your current user context is fine. `n`nFormat: DOMAIN\USERNAME or USERNAME@DOMAIN.TLD"
+    $Credential = Get-Credential -Message "Input the username/password to be used to authenticate to $domain. `nLeave blank if your current user context is fine. `n`nFormat: DOMAIN\USERNAME or USERNAME@DOMAIN.TLD"
 
 [xml]$RDCManConfigurationXML = @"
 <?xml version="1.0" encoding="utf-8"?>
