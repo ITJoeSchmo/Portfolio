@@ -1,3 +1,4 @@
+#Requires ActiveDirectory 
 <#
 .SYNOPSIS
     Generates RDCMan (.rdg) configuration files for each Active Directory domain by querying domain controllers and their associated servers.
@@ -20,7 +21,6 @@
 
 .NOTES
     Author: Joey Eckelbarger
-    Dependencies: Requires RSAT tools with ActiveDirectory module.
 #>
 
 $RDCManPath = Read-Host "Provide a DIRECTORY to save RDCMan configurations after being generated"
@@ -29,9 +29,11 @@ if(-Not (Test-Path($RDCManPath))){
     Throw "invalid path"
 }
 
-[array]$adServers = $(Read-Host "Provide a comma-separated list of Domain Controller FQDNs. Only 1 DC from each domain is needed.") -split ","
+[array]$domainNames = $(Read-Host "Provide a comma-separated list of Domains:") -split ","
 
-foreach($domainServer in $adServers){
+foreach($domain in $domainNames){
+
+    $Credential = Get-Credential -Message "Input the username/password to be used to authenticate to this domain. `nLeave blank if your current user context is fine. `n`nFormat: DOMAIN\USERNAME or USERNAME@DOMAIN.TLD"
 
 [xml]$RDCManConfigurationXML = @"
 <?xml version="1.0" encoding="utf-8"?>
@@ -61,12 +63,13 @@ foreach($domainServer in $adServers){
 [xml]$serverXML = @"
     <server>
         <properties>
+        <displayName>SERVERDISPLAYNAME</displayName>
         <name>SERVERNAME</name>
         </properties>
     </server>
 "@
 
-    $servers = Get-ADComputer -Filter 'operatingsystem -like "*server*" -and enabled -eq "true"' -server $domainServer -Properties Name,CanonicalName,operatingsystem | Sort-Object CanonicalName
+    $servers = Get-ADComputer -Filter 'operatingsystem -like "*server*" -and enabled -eq "true"' -server $domain -Properties Name,CanonicalName,operatingsystem | Sort-Object CanonicalName
 
     $domainName = $servers[0].CanonicalName.Split("/")[0]
 
@@ -151,7 +154,8 @@ foreach($domainServer in $adServers){
             }
         }
     
-        $serverXML.server.properties.name = $name 
+        $serverXML.server.properties.name        = "$($name).$($domainName)"
+        $serverXML.server.properties.displayName = $name 
         $importedNode = $RDCManConfigurationXML.ImportNode($serverXML.DocumentElement, $true)
     
         [void]$parentNode.InsertAfter($importedNode, $anchorNode)  
