@@ -1,4 +1,4 @@
-# Portfolio
+# Automation Portfolio
 
 This repository contains a collection of scripts and tools aimed at automating various IT processes and tasks, particularly in environments utilizing Azure/Microsoft services. Each folder in the repository focuses on a different aspect ranging from Ansible to simple PowerShell snippets.
 
