@@ -15,7 +15,7 @@
 .EXAMPLE
     PS C:\> .\Generate-RDCManConfigs.ps1
     Provide a DIRECTORY to save RDCMan configurations after being generated: C:\RDCConfigs
-    Provide a comma-separated list of Domain Controller FQDNs. Only 1 DC from each domain is needed: dc1.contoso.com,dc2.fabrikam.com
+    Provide a comma-separated list of Domain FQDNs
 
     This example prompts the user for input and generates RDCMan configuration files in the specified directory for the domains `contoso.com` and `fabrikam.com`.
 
@@ -33,7 +33,7 @@ if(-Not (Test-Path($RDCManPath))){
 
 foreach($domain in $domainNames){
 
-    $Credential = Get-Credential -Message "Input the username/password to be used to authenticate to $domain. `nLeave blank if your current user context is fine. `n`nFormat: DOMAIN\USERNAME or USERNAME@DOMAIN.TLD"
+    $Credential = Get-Credential -Message "Input the username/password to be used to authenticate to $domain. `n`nFormat: DOMAIN\USERNAME or USERNAME@DOMAIN.TLD"
 
 [xml]$RDCManConfigurationXML = @"
 <?xml version="1.0" encoding="utf-8"?>
