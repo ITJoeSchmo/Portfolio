@@ -97,8 +97,11 @@ if($configFilesOnHost[$select]){
     # take ownership + grant fullcontrol permissions to config file
     Try {
         $originalACL = Get-ACL $appConfigPath -ErrorAction Stop
+        #Added to get around reference object copy. this will create an independent object
+        $newACL = Get-ACL $appConfigPath -ErrorAction Stop 
         Write-Output "`nRetrieved permissions on file $appConfigPath"
-        $newACL = $originalACL
+        #Removed as it will do a reference assignment, which will then change also the originalACL
+        #$newACL = $originalACL 
 
         $objUser    = New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, $env:USERNAME)
         $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($objUser, "FullControl","Allow")
