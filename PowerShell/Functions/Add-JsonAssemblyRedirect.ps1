@@ -103,10 +103,9 @@ if($configFilesOnHost[$select]){
         #Removed as it will do a reference assignment, which will then change also the originalACL
         #$newACL = $originalACL 
 
-        $domain   = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).split("\") | select -first 1
-        $username = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).split("\") | select -last 1
+        $currentUser   = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-        $objUser    = New-Object System.Security.Principal.NTAccount($domain, $username)
+        $objUser    = New-Object System.Security.Principal.NTAccount($currentUser)
         $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($objUser, "FullControl","Allow")
 
         $newACL.SetOwner($objUser)
@@ -114,7 +113,7 @@ if($configFilesOnHost[$select]){
 
         Set-ACL $appConfigPath -AclObject $newACL -ErrorAction Stop
 
-        Write-Output "Temporarily took ownership and granted FullControl permissions to $username on $appConfigPath"
+        Write-Output "Temporarily took ownership and granted FullControl permissions to $currentUser on $appConfigPath"
     } Catch {
         Write-Error "Permissions failed to be retrieved or failed to be set on $($appConfigPath); halting execution..."
         Throw $_
@@ -167,7 +166,7 @@ if($configFilesOnHost[$select]){
         Set-ACL $appConfigPath -AclObject $originalACL -ErrorAction Stop
         Write-Output "`n`nRolled back ownership and permissions on the file $appConfigPath"
     } catch {
-        Write-Error "Failed to rollback permissions on $appConfigPath -- set ownership to TrustedInstaller, remove FullControl from $username"
+        Write-Error "Failed to rollback permissions on $appConfigPath -- set ownership to TrustedInstaller, remove FullControl from $currentUser"
         Throw $_
     }
 
